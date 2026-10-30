@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>供應商比價小幫手</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #F6F7F9;
+    color: #1F2328;
+    font-family: -apple-system, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    line-height: 1.5;
+  }
+  main {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+  }
+  h1 { font-size: 24px; font-weight: 700; margin: 0; }
+  .subtitle { color: #6B7280; font-size: 14px; margin: 4px 0 20px; }
+  .card {
+    background: #FFFFFF;
+    border: 2px solid #FFFFFF;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    transition: background-color .2s, border-color .2s;
+  }
+  .card.fastest { background: #EFF6FF; border-color: #2563EB; }
+  .card.cheapest { background: #ECFDF3; border-color: #16A34A; }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .name { font-size: 18px; font-weight: 700; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .tag {
+    display: none;
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 999px;
+  }
+  .tag-cheap { background: #16A34A; }
+  .tag-fast { background: #2563EB; }
+  .card.cheapest .tag-cheap, .card.fastest .tag-fast { display: inline-block; }
+  .fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .field { display: block; min-width: 0; }
+  .field span { display: block; font-size: 13px; color: #6B7280; margin-bottom: 4px; }
+  .field input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    padding: 0 12px;
+    font-size: 16px;
+    font-family: inherit;
+    color: #1F2328;
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .field input:focus { border-color: #1F2328; }
+  .total {
+    text-align: right;
+    font-size: 32px;
+    font-weight: 700;
+    margin-top: 16px;
+  }
+  .save {
+    display: none;
+    text-align: right;
+    font-size: 14px;
+    color: #6B7280;
+    margin-top: 2px;
+  }
+  .card.cheapest .save { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>供應商比價小幫手</h1>
+  <p class="subtitle">辦公室印表機黑色碳粉匣</p>
+  <div id="list"></div>
+</main>
+<script>
+  const suppliers = [
+    { name: "甲山", price: 1180, qty: 24, shipping: 0,    days: 3 },
+    { name: "乙禾", price: 1090, qty: 24, shipping: 600,  days: 7 },
+    { name: "丙川", price: 1050, qty: 24, shipping: 1800, days: 2 },
+  ];
+
+  const fields = [
+    { key: "price", label: "單價" },
+    { key: "qty", label: "數量" },
+    { key: "shipping", label: "運費" },
+    { key: "days", label: "交期天數" },
+  ];
+
+  const list = document.getElementById("list");
+  const money = (n) => "NT$ " + n.toLocaleString("zh-TW");
+
+  // 從陣列產生卡片
+  suppliers.forEach((s) => {
+    const card = document.createElement("section");
+    card.className = "card";
+    card.dataset.name = s.name;
+    card.innerHTML =
+      '<div class="card-head"><div class="name">' + s.name + '</div>' +
+      '<div class="tags"><span class="tag tag-cheap">最便宜</span>' +
+      '<span class="tag tag-fast">最快到貨</span></div></div>' +
+      '<div class="fields">' +
+      fields.map((f) =>
+        '<label class="field"><span>' + f.label + '</span>' +
+        '<input type="number" inputmode="decimal" data-key="' + f.key + '"' +
+        ' aria-label="' + s.name + f.label + '" value="' + s[f.key] + '"></label>'
+      ).join("") +
+      '</div><div class="total"></div><div class="save"></div>';
+    card.querySelectorAll("input").forEach((input) => {
+      input.addEventListener("input", () => {
+        const n = parseFloat(input.value);
+        s[input.dataset.key] = isNaN(n) ? 0 : n;   // 空白或非數字當 0
+        render();
+      });
+    });
+    s.card = card;
+    list.appendChild(card);
+  });
+
+  function render() {
+    // 1. 算總價
+    suppliers.forEach((s) => { s.total = Math.round(s.price * s.qty + s.shipping); });
+    // 2. 找最便宜、最快
+    const byTotal = [...suppliers].sort((a, b) => a.total - b.total);
+    const cheapest = byTotal[0];
+    const fastest = suppliers.reduce((a, b) => (b.days < a.days ? b : a));
+    // 3. 更新畫面
+    suppliers.forEach((s) => {
+      s.card.querySelector(".total").textContent = money(s.total);
+      s.card.classList.toggle("cheapest", s === cheapest);
+      s.card.classList.toggle("fastest", s === fastest);
+      s.card.querySelector(".save").textContent =
+        s === cheapest ? "比第二名省 " + money(byTotal[1].total - s.total) : "";
+    });
+  }
+
+  render();
+</script>
+</body>
+</html>
